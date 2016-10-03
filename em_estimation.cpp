@@ -40,6 +40,13 @@ double log_choose(const int &base, const int &chose)
     return log_c;
 }
 
+double binomial_log_pdf(const double &x, const double &p, const double &n)
+{
+    assert(p!=0.0 && p!=1.0);
+        
+    return log_choose(n, x)+x*log(p)+(n-x)*log(1-p);
+}
+
 double binomial_pdf(const double &x, const double &p, const double &n)
 {
     if(p==0.0)
@@ -187,12 +194,12 @@ void EMEstimation::estimation(const int &MAX_ITER, const double &tot)
 
         this->output_parameter();
     }
-    cout << "Prior: ";
+    cout << "Final Prior: ";
     output_list(this->prior);
     
 //    this->output_parameter();
-//    cout << "Parameter: ";
-//    output_list(this->parameter);
+    cout << "Final Parameter: ";
+    output_list(this->parameter);
 }
 
 void MixBinomialEMEstimation::init_model_parameter()
@@ -209,7 +216,24 @@ void MixBinomialEMEstimation::init_model_parameter()
 
     for(int index=0; index<K; index++)
     {
-        this->parameter[index]=this->data[rand() % this->data.size()][0]/this->N;
+        // make sure no two initialized parameters are same
+        double new_para=this->data[rand() % this->data.size()][0]/this->N;
+
+        while(true)
+        {
+            int j=index-1;
+            for(; j>=0; j--)
+            {
+                if(new_para==this->parameter[j])
+                    break;
+            }
+            if(j<0)
+                break;
+            
+            new_para=this->data[rand() % this->data.size()][0]/this->N;
+        }
+
+        this->parameter[index]=new_para;
     }
 
     vector<double> tmp(this->K, 1.0/this->K);
@@ -223,14 +247,44 @@ void MixBinomialEMEstimation::update_posterior()
     for(size_t d_index=0; d_index<this->data.size(); d_index++)
     {
         double cond=0.0;
+
         for(int index=0; index<this->K; index++)
         {
-            cond+=this->prior[index]*binomial_pdf(this->data[d_index][0], this->parameter[index], this->N);
+            double p=binomial_pdf(this->data[d_index][0], this->parameter[index], this->N);
+            cond += this->prior[index]*p;
         }
-        assert(cond>0);
-        for(int index=0; index<this->K; index++)
+        if(cond>0)
         {
-            posterior_of_z[d_index][index]=this->prior[index]*binomial_pdf(this->data[d_index][0], this->parameter[index], this->N)/cond;
+            for(int index=0; index<this->K; index++)
+            {
+                posterior_of_z[d_index][index]=this->prior[index]*binomial_pdf(this->data[d_index][0], this->parameter[index], this->N)/cond;
+            }
+        }
+        else
+        {
+            double log_min=1.0; // log-cond
+
+            vector<double> log_prob(this->K, 0.0);
+
+            for(int index=0; index<this->K; index++)
+            {
+                log_prob[index]=log(this->prior[index])+binomial_log_pdf(this->data[d_index][0], this->parameter[index], this->N);
+                if(log_min>log_prob[index])
+                    log_min=log_prob[index];
+            }
+            cond=0.0;
+
+            for(int index=0; index<this->K; index++)
+            {
+                cond+=exp(log_prob[index]-log_min);
+            }
+
+            assert(cond > 0.0);
+            
+            for(int index=0; index < this->K; index++)
+            {
+                posterior_of_z[d_index][index]=exp(log_prob[index]-log_min-log(cond));
+            }
         }
     }
 }
@@ -248,13 +302,15 @@ double MixBinomialEMEstimation::update_prior_and_parameter()
 
         for(size_t d_index=0; d_index<this->data.size(); d_index++)
         {
+//            cout << this->posterior_of_z[d_index][index] << endl;
+
             posterior_sum+=this->posterior_of_z[d_index][index];
             rate+=this->data[d_index][0]*this->posterior_of_z[d_index][index];
         }
 
         this->prior[index]=posterior_sum/this->data.size();
 
-        assert(rate>0);
+        assert(rate>0.0);
 
         rate=rate/posterior_sum/this->N;
 
@@ -262,13 +318,19 @@ double MixBinomialEMEstimation::update_prior_and_parameter()
         
         this->parameter[index]=rate;
     }
-    cout << error << endl;
     
     return error;
 }
 
 void MixBinomialEMEstimation::output_parameter()
 {
+    cout << "Parameters:" << endl;
+
+    output_vec(this->parameter);
+
+    cout << "Priors:" << endl;
+
+    output_vec(this->prior);
 }
 
 void MixPoissonEMEstimation::update_posterior()
@@ -524,7 +586,7 @@ void em_estimation_MoB(const int &K, const unsigned int &N)
     }
     model.init_model_parameter();
 
-    cout << "Total number of data points: " << model.data.size() << endl;
+    cerr << "Total number of data points: " << model.data.size() << endl;
 
     model.estimation();
 }

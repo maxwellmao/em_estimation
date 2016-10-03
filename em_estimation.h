@@ -31,6 +31,7 @@ public:
     virtual void output_parameter() = 0;
 };
 
+// can be also used for solving mixture of geometric model
 class MixExponentialEMEstimation: public EMEstimation{
 public:
     MixExponentialEMEstimation(const int &k): EMEstimation(k){}
