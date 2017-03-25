@@ -570,8 +570,6 @@ void MixGaussianEMEstimation::output_parameter()
 
 void em_estimation_MoB(const int &K, const unsigned int &N)
 {
-    srand(time(NULL));
-
     MixBinomialEMEstimation model(K, N);
 
     string line;
@@ -593,8 +591,6 @@ void em_estimation_MoB(const int &K, const unsigned int &N)
 
 void em_estimation_MoP(const int &K)
 {
-    srand(time(NULL));
-
     MixPoissonEMEstimation model(K);
 
     string line;
@@ -616,8 +612,6 @@ void em_estimation_MoP(const int &K)
 
 void em_estimation_MoE(const int &K)
 {
-    srand(time(NULL));
-
     MixExponentialEMEstimation model(K);
 
     string line;
@@ -639,8 +633,6 @@ void em_estimation_MoE(const int &K)
 
 void em_estimation_MoG(const int &K, const unsigned int &dim, const bool &with_label_at_first, const string &save_path)
 {
-    srand(time(NULL));
-
     MixGaussianEMEstimation model(K, dim);
 
     string line;
@@ -853,7 +845,11 @@ void parse_args(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    srand(time(NULL));
+    unsigned int seed=time(NULL);
+
+    cerr << "Random seed: " << seed << endl;
+
+    srand(seed);
 
     parse_args(argc, argv);
 
